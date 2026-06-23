@@ -51,6 +51,7 @@
 #include "nvdla_os_inf.h"
 
 #define NVDLA_DEVICE_NODE "/dev/dri/renderD128"
+#define NVDLA_DEVICE_NODE_ENV "NVDLA_DEVICE_NODE"
 
 #define NVDLA_MEM_READ (PROT_READ)
 #define NVDLA_MEM_WRITE (PROT_WRITE)
@@ -232,6 +233,7 @@ NvDlaOpen(void *session_handle, NvU32 instance, void **device_handle)
 {
     NvDlaContext *pContext = NULL;
     NvDlaError e = NvDlaSuccess;
+	const char *device_node;
 
     if (instance > 0)
         return NvDlaError_BadParameter;
@@ -246,7 +248,10 @@ NvDlaOpen(void *session_handle, NvU32 instance, void **device_handle)
 
     NvDlaMemset(pContext, 0, sizeof(NvDlaContext));
 
-    pContext->fd = open(NVDLA_DEVICE_NODE, O_RDWR);
+	device_node = getenv(NVDLA_DEVICE_NODE_ENV);
+	if (!device_node || !device_node[0])
+		device_node = NVDLA_DEVICE_NODE;
+	pContext->fd = open(device_node, O_RDWR);
     if (pContext->fd < 0) {
         e = NvDlaError_ResourceError;
         goto fail;
