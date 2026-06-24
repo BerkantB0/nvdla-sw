@@ -50,6 +50,11 @@
 #include <linux/stdarg.h>
 #include <linux/time.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+#include <linux/iosys-map.h>
+#endif
 
 #include <nvdla_interface.h>
 #include <nvdla_linux.h>
@@ -218,12 +223,69 @@ int32_t dla_get_dma_address(void *driver_context, void *task_data,
 	return ret;
 }
 
+static int nvdla_dma_buf_memcpy_to(struct dma_buf *buf, uint64_t offset,
+				   const void *src, uint32_t size)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	struct iosys_map map;
+	int ret;
+
+	ret = dma_buf_vmap(buf, &map);
+	if (ret)
+		return ret;
+
+	iosys_map_memcpy_to(&map, offset, src, size);
+	dma_buf_vunmap(buf, &map);
+
+	return 0;
+#else
+	void *ptr;
+
+	ptr = dma_buf_vmap(buf);
+	if (!ptr)
+		return -ENOMEM;
+
+	memcpy((void *)((uint8_t *)ptr + offset), src, size);
+	dma_buf_vunmap(buf, ptr);
+
+	return 0;
+#endif
+}
+
+static int nvdla_dma_buf_memcpy_from(void *dst, struct dma_buf *buf,
+				     uint64_t offset, uint32_t size)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+	struct iosys_map map;
+	int ret;
+
+	ret = dma_buf_vmap(buf, &map);
+	if (ret)
+		return ret;
+
+	iosys_map_memcpy_from(dst, &map, offset, size);
+	dma_buf_vunmap(buf, &map);
+
+	return 0;
+#else
+	void *ptr;
+
+	ptr = dma_buf_vmap(buf);
+	if (!ptr)
+		return -ENOMEM;
+
+	memcpy(dst, (void *)(((uint8_t *)ptr) + offset), size);
+	dma_buf_vunmap(buf, ptr);
+
+	return 0;
+#endif
+}
+
 int32_t dla_data_write(void *driver_context, void *task_data,
 				void *src, uint64_t dst,
 				uint32_t size, uint64_t offset)
 {
 	int32_t ret;
-	void *ptr = NULL;
 	struct dma_buf *buf;
 	struct nvdla_mem_handle *handles;
 	struct nvdla_task *task = (struct nvdla_task *)task_data;
@@ -240,18 +302,12 @@ int32_t dla_data_write(void *driver_context, void *task_data,
 	if (ret)
 		goto put_dma_buf;
 
-	ptr = dma_buf_vmap(buf);
-	if (!ptr) {
+	ret = nvdla_dma_buf_memcpy_to(buf, offset, src, size);
+	if (ret) {
 		pr_err("%s: Failed to vmap dma_buf for handle=%d\n", __func__,
 						handles[dst].handle);
-		ret = -ENOMEM;
 		goto end_cpu_access;
 	}
-
-
-	memcpy((void *)((uint8_t *)ptr + offset), src, size);
-
-	dma_buf_vunmap(buf, ptr);
 
 end_cpu_access:
 	dma_buf_end_cpu_access(buf, DMA_BIDIRECTIONAL);
@@ -267,7 +323,6 @@ int32_t dla_data_read(void *driver_context, void *task_data,
 				uint32_t size, uint64_t offset)
 {
 	int32_t ret;
-	void *ptr = NULL;
 	struct dma_buf *buf;
 	struct nvdla_mem_handle *handles;
 	struct nvdla_task *task = (struct nvdla_task *)task_data;
@@ -285,17 +340,12 @@ int32_t dla_data_read(void *driver_context, void *task_data,
 	if (ret)
 		goto put_dma_buf;
 
-	ptr = dma_buf_vmap(buf);
-	if (!ptr) {
+	ret = nvdla_dma_buf_memcpy_from(dst, buf, offset, size);
+	if (ret) {
 		pr_err("%s: Failed to vmap dma_buf for handle=%d\n", __func__,
 						handles[src].handle);
-		ret = -ENOMEM;
 		goto end_cpu_access;
 	}
-
-	memcpy(dst, (void *)(((uint8_t *)ptr) + offset), size);
-
-	dma_buf_vunmap(buf, ptr);
 
 end_cpu_access:
 	dma_buf_end_cpu_access(buf, DMA_BIDIRECTIONAL);
@@ -436,6 +486,9 @@ static struct platform_driver nvdla_driver = {
 };
 module_platform_driver(nvdla_driver);
 
+#ifdef MODULE_IMPORT_NS
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("NVIDIA");
 MODULE_DESCRIPTION("Nvidia Deep Learning Accelerator driver");
