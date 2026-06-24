@@ -32,8 +32,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdarg.h>
-
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
@@ -49,6 +47,7 @@
 #include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/stdarg.h>
 #include <linux/time.h>
 #include <linux/uaccess.h>
 
