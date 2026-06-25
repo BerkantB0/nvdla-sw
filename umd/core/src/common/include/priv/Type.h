@@ -33,6 +33,7 @@
 #include <sstream>
 #include <map>
 #include <algorithm>
+#include <limits>
 #include <exception>
 
 #include "nvdla/IType.h"
