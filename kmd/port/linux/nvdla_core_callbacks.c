@@ -443,12 +443,17 @@ static int32_t nvdla_probe(struct platform_device *pdev)
 	if (IS_ERR(nvdla_dev->base))
 		return PTR_ERR(nvdla_dev->base);
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "no irq resource\n");
-		return -EINVAL;
+	err = platform_get_irq(pdev, 0);
+	if (err < 0) {
+		res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+		if (!res) {
+			dev_err(&pdev->dev, "no irq resource: %d\n", err);
+			return err;
+		}
+		nvdla_dev->irq = res->start;
+	} else {
+		nvdla_dev->irq = err;
 	}
-	nvdla_dev->irq = res->start;
 
 	err = devm_request_irq(&pdev->dev, nvdla_dev->irq,
 				nvdla_engine_isr, 0,

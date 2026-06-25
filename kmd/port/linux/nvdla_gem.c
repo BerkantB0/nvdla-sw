@@ -307,6 +307,7 @@ static int32_t nvdla_drm_gem_object_mmap(struct drm_gem_object *dobj,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
 static int32_t nvdla_drm_gem_mmap_buf(struct drm_gem_object *obj,
 				struct vm_area_struct *vma)
 {
@@ -332,6 +333,7 @@ static int32_t nvdla_drm_gem_mmap(struct file *filp, struct vm_area_struct *vma)
 
 	return nvdla_drm_gem_object_mmap(obj, vma);
 }
+#endif
 
 static struct sg_table
 *nvdla_drm_gem_prime_get_sg_table(struct drm_gem_object *dobj)
@@ -453,7 +455,7 @@ static const struct drm_gem_object_funcs nvdla_gem_object_funcs = {
 	.get_sg_table = nvdla_drm_gem_prime_get_sg_table,
 	.vmap = nvdla_drm_gem_prime_vmap,
 	.vunmap = nvdla_drm_gem_prime_vunmap,
-	.mmap = nvdla_drm_gem_mmap_buf,
+	.mmap = nvdla_drm_gem_object_mmap,
 	.vm_ops = &nvdla_drm_gem_vm_ops,
 };
 #endif
@@ -463,7 +465,11 @@ static const struct file_operations nvdla_drm_fops = {
 	.open = drm_open,
 	.release = drm_release,
 	.unlocked_ioctl = drm_ioctl,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+	.mmap = drm_gem_mmap,
+#else
 	.mmap = nvdla_drm_gem_mmap,
+#endif
 	.poll = drm_poll,
 	.read = drm_read,
 #ifdef CONFIG_COMPAT
