@@ -44,6 +44,7 @@ INCLUDES :=
 MODULE_COMPILEFLAGS := -W -Wall -Wno-multichar -Wno-unused-parameter -Wno-unused-function -Werror-implicit-function-declaration
 MODULE_CFLAGS := --std=c99
 MODULE_CPPFLAGS := --std=c++11 -fexceptions -fno-rtti
+RUNTIME_LDFLAGS ?=
 
 all:: $(TEST_BIN)
 
@@ -52,4 +53,4 @@ include rules.mk
 # the logic to compile and link stuff is in here
 $(TEST_BIN): $(ALLMODULE_OBJS) $(SHARED_LIBS)
 	@echo building $(MODULE)  $@
-	$(TOOLCHAIN_PREFIX)g++ $(ALLMODULE_OBJS) -pthread -L$(ROOT)/external/ -ljpeg -L$(ROOT)/out/core/src/runtime/libnvdla_runtime -lnvdla_runtime -o $@ -Wl,-rpath=.
+	$(TOOLCHAIN_PREFIX)g++ $(ALLMODULE_OBJS) $(RUNTIME_LDFLAGS) -pthread -L$(ROOT)/external/ -ljpeg -L$(ROOT)/out/core/src/runtime/libnvdla_runtime -lnvdla_runtime -o $@ -Wl,-rpath=.
