@@ -32,9 +32,17 @@
 
 obj-m += opendla.o
 
+NVDLA_HW_CONFIG ?= initial
+
 ccflags-y += -I$(src)/include
 ccflags-y += -I$(src)/../../include
 ccflags-y += -Werror
+
+ifeq ($(NVDLA_HW_CONFIG),small)
+ccflags-y += -DDLA_2_CONFIG
+else ifneq ($(NVDLA_HW_CONFIG),initial)
+$(error unsupported NVDLA_HW_CONFIG '$(NVDLA_HW_CONFIG)' (expected initial or small))
+endif
 
 include $(src)/../../firmware/Makefile
 
