@@ -44,6 +44,7 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 #include <drm/drm_gem_dma_helper.h>
 #include <linux/iosys-map.h>
+#include <linux/of_reserved_mem.h>
 #define nvdla_drm_gem_vm_ops drm_gem_dma_vm_ops
 #else
 #include <drm/drm_gem_cma_helper.h>
@@ -68,11 +69,15 @@ static const struct drm_gem_object_funcs nvdla_gem_object_funcs;
 
 static int nvdla_declare_coherent_memory(struct device *dev)
 {
-	return 0;
+	if (!dev->of_node || !of_property_read_bool(dev->of_node, "memory-region"))
+		return 0;
+
+	return of_reserved_mem_device_init(dev);
 }
 
 static void nvdla_release_coherent_memory(struct device *dev)
 {
+	of_reserved_mem_device_release(dev);
 }
 
 #define nvdla_drm_dev_put(drm) drm_dev_put(drm)
@@ -542,10 +547,12 @@ int32_t nvdla_drm_probe(struct nvdla_device *nvdla_dev)
 	 */
 	err = nvdla_declare_coherent_memory(drm->dev);
 	if (err)
-		goto unref;
+		goto unregister;
 
 	return 0;
 
+unregister:
+	drm_dev_unregister(drm);
 unref:
 	nvdla_drm_dev_put(drm);
 	return err;
