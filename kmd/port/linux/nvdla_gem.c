@@ -43,6 +43,7 @@
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 #include <drm/drm_gem_dma_helper.h>
+#include <linux/dma-buf.h>
 #include <linux/iosys-map.h>
 #include <linux/of_reserved_mem.h>
 #define nvdla_drm_gem_vm_ops drm_gem_dma_vm_ops
@@ -397,11 +398,26 @@ static void nvdla_drm_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr)
 int32_t nvdla_gem_dma_addr(struct drm_device *dev, struct drm_file *file,
 			uint32_t fd, dma_addr_t *addr)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+	struct dma_buf *dma_buf;
+	struct drm_gem_object *dobj;
+#else
 	int32_t ret;
 	uint32_t handle;
-	struct nvdla_gem_object *nobj;
 	struct drm_gem_object *dobj;
+#endif
+	struct nvdla_gem_object *nobj;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR(dma_buf))
+		return PTR_ERR(dma_buf);
+
+	dobj = drm_gem_prime_import(dev, dma_buf);
+	dma_buf_put(dma_buf);
+	if (IS_ERR(dobj))
+		return PTR_ERR(dobj);
+#else
 	ret = drm_gem_prime_fd_to_handle(dev, file, fd, &handle);
 	if (ret)
 		return ret;
@@ -409,6 +425,7 @@ int32_t nvdla_gem_dma_addr(struct drm_device *dev, struct drm_file *file,
 	dobj = drm_gem_object_lookup(file, handle);
 	if (!dobj)
 		return -EINVAL;
+#endif
 
 	nobj = to_nvdla_obj(dobj);
 
@@ -501,8 +518,10 @@ static struct drm_driver nvdla_drm_driver = {
 	.gem_free_object_unlocked = nvdla_gem_free_object,
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
+#endif
 	.gem_prime_import = drm_gem_prime_import,
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
