@@ -53,4 +53,4 @@ include rules.mk
 # the logic to compile and link stuff is in here
 $(LIB): $(ALLMODULE_OBJS)
 	@echo building $(MODULE)  $@
-	$(TOOLCHAIN_PREFIX)g++ -shared $(ALLMODULE_OBJS) -o $@
+	$(NVDLA_CXX) -shared $(ALLMODULE_OBJS) $(NVDLA_LDFLAGS) -o $@

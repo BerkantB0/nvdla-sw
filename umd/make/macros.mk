@@ -33,3 +33,12 @@ MKDIR = if [ ! -d $(dir $@) ]; then mkdir -p $(dir $@); fi
 
 # prepends the BUILD_DIR var to each item in the list
 TOBUILDDIR = $(addprefix $(BUILDDIR)/,$(1))
+
+# Keep the historical prefix interface while allowing build systems to pass
+# complete compiler commands and policy flags.
+NVDLA_CC ?= $(TOOLCHAIN_PREFIX)gcc
+NVDLA_CXX ?= $(TOOLCHAIN_PREFIX)g++
+NVDLA_LD ?= $(TOOLCHAIN_PREFIX)ld
+NVDLA_CFLAGS ?=
+NVDLA_CXXFLAGS ?=
+NVDLA_LDFLAGS ?=
