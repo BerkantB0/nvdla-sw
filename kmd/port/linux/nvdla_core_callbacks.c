@@ -32,6 +32,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/clk.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
@@ -80,6 +81,65 @@ static struct nvdla_config nvdla_config_large = {
 	.rubik_enable = false,
 	.weight_compress_support = false,
 };
+
+static int nvdla_get_optional_clock(struct device *dev, const char *name,
+				    struct clk **clock)
+{
+	int err;
+
+	*clock = devm_clk_get(dev, name);
+	if (!IS_ERR(*clock))
+		return 0;
+
+	err = PTR_ERR(*clock);
+	*clock = NULL;
+
+	if (err == -ENOENT)
+		return 0;
+
+	dev_err(dev, "failed to get %s clock: %d\n", name, err);
+	return err;
+}
+
+static void nvdla_disable_clocks(struct nvdla_device *nvdla_dev)
+{
+	clk_disable_unprepare(nvdla_dev->m_axi_clk);
+	clk_disable_unprepare(nvdla_dev->csb_clk);
+}
+
+static int nvdla_enable_clocks(struct nvdla_device *nvdla_dev)
+{
+	struct device *dev = &nvdla_dev->pdev->dev;
+	int err;
+
+	err = nvdla_get_optional_clock(dev, "csb_clk", &nvdla_dev->csb_clk);
+	if (err)
+		return err;
+
+	err = nvdla_get_optional_clock(dev, "m_axi_clk",
+				       &nvdla_dev->m_axi_clk);
+	if (err)
+		return err;
+
+	err = clk_prepare_enable(nvdla_dev->csb_clk);
+	if (err) {
+		dev_err(dev, "failed to enable csb_clk: %d\n", err);
+		return err;
+	}
+
+	err = clk_prepare_enable(nvdla_dev->m_axi_clk);
+	if (err) {
+		dev_err(dev, "failed to enable m_axi_clk: %d\n", err);
+		clk_disable_unprepare(nvdla_dev->csb_clk);
+		return err;
+	}
+
+	dev_info(dev, "interface clocks: csb=%s m_axi=%s\n",
+		 nvdla_dev->csb_clk ? "enabled" : "not described",
+		 nvdla_dev->m_axi_clk ? "enabled" : "not described");
+
+	return 0;
+}
 
 
 void dla_debug(const char *str, ...)
@@ -461,12 +521,18 @@ static int32_t nvdla_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	err = nvdla_enable_clocks(nvdla_dev);
+	if (err)
+		return err;
+
 	dla_register_driver(&nvdla_dev->engine_context, (void *)nvdla_dev);
 	dla_clear_task(nvdla_dev->engine_context);
 
 	err = nvdla_drm_probe(nvdla_dev);
-	if (err)
+	if (err) {
 		dev_err(&pdev->dev, "failed to register drm device\n");
+		nvdla_disable_clocks(nvdla_dev);
+	}
 
 	return err;
 }
@@ -476,6 +542,7 @@ static int32_t __exit nvdla_remove(struct platform_device *pdev)
 	struct nvdla_device *nvdla_dev = dev_get_drvdata(&pdev->dev);
 
 	nvdla_drm_remove(nvdla_dev);
+	nvdla_disable_clocks(nvdla_dev);
 
 	return 0;
 }

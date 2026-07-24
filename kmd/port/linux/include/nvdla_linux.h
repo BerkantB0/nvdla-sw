@@ -41,6 +41,8 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 
+struct clk;
+
 /**
  * @brief			Task information submitted from user space
  *
@@ -80,6 +82,8 @@ struct nvdla_config
  * irq				Interrupt number associated with this device
  * ref				Reference count for device
  * base				IO mapped base address for device
+ * csb_clk			Optional CSB interface clock
+ * m_axi_clk			Optional memory AXI interface clock
  * nvdla_lock			Spinlock used for synchronization
  * drm				DRM device instance
  * task				Pointer to task in execution
@@ -92,6 +96,8 @@ struct nvdla_device {
 	int32_t irq;
 	struct kref ref;
 	void __iomem *base;
+	struct clk *csb_clk;
+	struct clk *m_axi_clk;
 	spinlock_t nvdla_lock;
 	struct drm_device *drm;
 	struct nvdla_task *task;
