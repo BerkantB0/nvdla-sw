@@ -29,6 +29,8 @@
 #ifndef NVDLA_PRIV_EMULATOR_H
 #define NVDLA_PRIV_EMULATOR_H
 
+#include <condition_variable>
+#include <mutex>
 #include <queue>
 
 #include "priv/EMUInterface.h"
@@ -73,6 +75,9 @@ protected:
 
 private:
     std::queue<NvU8*> m_taskQueue;
+    std::condition_variable m_taskCondition;
+    std::mutex m_taskMutex;
+    bool m_taskActive;
 
     NvDlaThreadHandle m_thread;
     bool m_threadActive;

@@ -41,6 +41,7 @@ namespace priv
 {
 
 Emulator::Emulator() :
+        m_taskActive(false),
         m_thread(),
         m_threadActive(false),
         m_signalShutdown(false)
@@ -55,19 +56,21 @@ Emulator::~Emulator()
 
 bool Emulator::ping()
 {
+    std::lock_guard<std::mutex> lock(m_taskMutex);
     return m_threadActive;
 }
 
 NvDlaError Emulator::submit(NvU8* task_mem, bool blocking)
 {
-    m_taskQueue.push(task_mem);
+    std::unique_lock<std::mutex> lock(m_taskMutex);
 
-    if (blocking) {
-        // wait until queue becomes empty
-        while (!m_taskQueue.empty()) {
-            NvDlaThreadYield();
-        }
-    }
+    m_taskQueue.push(task_mem);
+    m_taskCondition.notify_one();
+
+    if (blocking)
+        m_taskCondition.wait(lock, [this] {
+            return m_taskQueue.empty() && !m_taskActive;
+        });
 
     return NvDlaSuccess;
 }
@@ -96,7 +99,11 @@ bool Emulator::stop()
 
     if (m_thread)
     {
-        m_signalShutdown = true;
+        {
+            std::lock_guard<std::mutex> lock(m_taskMutex);
+            m_signalShutdown = true;
+        }
+        m_taskCondition.notify_one();
         NvDlaThreadJoin(m_thread);
         m_thread = NULL;
     }
@@ -107,17 +114,32 @@ bool Emulator::stop()
 bool Emulator::run()
 {
     bool ok = true;
-    m_threadActive = true;
 
     EMUInterface* emu_if = new EMUInterfaceA();
+
+    {
+        std::lock_guard<std::mutex> lock(m_taskMutex);
+        m_threadActive = true;
+    }
 
     NvDlaDebugPrintf("Emulator starting\n");
 
     while (true)
     {
-        if (!m_taskQueue.empty())
         {
+            std::unique_lock<std::mutex> lock(m_taskMutex);
+            m_taskCondition.wait(lock, [this] {
+                return m_signalShutdown || !m_taskQueue.empty();
+            });
+
+            if (m_signalShutdown && m_taskQueue.empty())
+                break;
+
             NvU8* task_mem = m_taskQueue.front();
+            m_taskQueue.pop();
+            m_taskActive = true;
+            lock.unlock();
+
             NvDlaDebugPrintf("Work Found!\n");
 
             EMUTaskDescAccessor task_desc = emu_if->taskDescAccessor(task_mem);
@@ -144,31 +166,24 @@ bool Emulator::run()
             processTask(task_mem, mappedAddressList);
             NvDlaDebugPrintf("Work Done\n");
 
-            m_taskQueue.pop();
-            continue;
-        }
-
-        if (m_signalShutdown)
-        {
-            NvDlaDebugPrintf("Shutdown signal received, exiting\n");
-            break;
-        }
-
-        if (m_taskQueue.empty())
-        {
-            NvDlaSleepMS(500);
+            lock.lock();
+            m_taskActive = false;
+            lock.unlock();
+            m_taskCondition.notify_all();
         }
     }
 
-    // Cleanup
-    while (!m_taskQueue.empty())
     {
-        m_taskQueue.pop();
+        std::lock_guard<std::mutex> lock(m_taskMutex);
+        while (!m_taskQueue.empty())
+            m_taskQueue.pop();
+        m_taskActive = false;
+        m_threadActive = false;
+        m_signalShutdown = false;
     }
+    m_taskCondition.notify_all();
 
     delete emu_if;
-    m_threadActive = false;
-    m_signalShutdown = false;
 
     return ok;
 }
