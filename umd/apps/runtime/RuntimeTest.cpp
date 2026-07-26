@@ -367,10 +367,10 @@ void unloadLoadable(const TestAppArgs* appArgs, TestInfo *i)
     }
 }
 
-double get_elapsed_time(struct timespec *before, struct timespec *after)
+double get_elapsed_time_seconds(struct timespec *before, struct timespec *after)
 {
-  double deltat_s  = (after->tv_sec - before->tv_sec) * 1000000;
-  double deltat_ns = (after->tv_nsec - before->tv_nsec) / 1000;
+  double deltat_s  = after->tv_sec - before->tv_sec;
+  double deltat_ns = (after->tv_nsec - before->tv_nsec) / 1000000000.0;
   return deltat_s + deltat_ns;
 }
 
@@ -397,7 +397,8 @@ NvDlaError runTest(const TestAppArgs* appArgs, TestInfo* i)
         ORIGINATE_ERROR(NvDlaError_BadParameter, "runtime->submit() failed");
 
     clock_gettime(CLOCK_MONOTONIC, &after);
-    NvDlaDebugPrintf("execution time = %f s\n", get_elapsed_time(&before,&after));
+    NvDlaDebugPrintf("execution time = %f s\n",
+                     get_elapsed_time_seconds(&before, &after));
 
     PROPAGATE_ERROR_FAIL(DlaBuffer2DIMG(&pOutputBuffer, i->outputImage));
 
