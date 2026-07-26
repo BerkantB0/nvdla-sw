@@ -64,6 +64,20 @@ static NvU64 elapsedNs(NvU64 before)
     return monotonicRawNs() - before;
 }
 
+static NvU64 measureClockPairOverheadNs()
+{
+    NvU64 minimum = ~0ULL;
+
+    for (NvU32 index = 0; index < 1000; ++index)
+    {
+        NvU64 before = monotonicRawNs();
+        NvU64 overhead = elapsedNs(before);
+        if (overhead < minimum)
+            minimum = overhead;
+    }
+    return minimum;
+}
+
 static bool writePerformanceProfile(const TestAppArgs* appArgs,
                                     const TestInfo* i)
 {
@@ -82,6 +96,7 @@ static bool writePerformanceProfile(const TestAppArgs* appArgs,
             "  \"schema_version\": 2,\n"
             "  \"clock\": \"CLOCK_MONOTONIC_RAW\",\n"
             "  \"clock_resolution_ns\": %llu,\n"
+            "  \"clock_pair_overhead_ns\": %llu,\n"
             "  \"warmup_iterations\": %u,\n"
             "  \"measured_iterations\": %u,\n"
             "  \"outputs_consistent\": %s,\n"
@@ -103,6 +118,7 @@ static bool writePerformanceProfile(const TestAppArgs* appArgs,
             "  },\n"
             "  \"samples\": [\n",
             (unsigned long long)profile.clockResolutionNs,
+            (unsigned long long)profile.clockPairOverheadNs,
             appArgs->warmupIterations,
             appArgs->measuredIterations,
             profile.outputsConsistent ? "true" : "false",
@@ -569,6 +585,7 @@ NvDlaError run(const TestAppArgs* appArgs, TestInfo* i)
         i->profile.clockResolutionNs =
             (NvU64)resolution.tv_sec * 1000000000ULL +
             (NvU64)resolution.tv_nsec;
+    i->profile.clockPairOverheadNs = measureClockPairOverheadNs();
 
     /* Create runtime instance */
     NvDlaDebugPrintf("creating new runtime context...\n");

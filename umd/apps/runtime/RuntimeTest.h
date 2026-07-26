@@ -51,6 +51,7 @@ struct PerformanceProfile
 {
     PerformanceProfile() :
         clockResolutionNs(0),
+        clockPairOverheadNs(0),
         runtimeCreateNs(0),
         loadableReadNs(0),
         runtimeLoadNs(0),
@@ -69,6 +70,7 @@ struct PerformanceProfile
     {}
 
     NvU64 clockResolutionNs;
+    NvU64 clockPairOverheadNs;
     NvU64 runtimeCreateNs;
     NvU64 loadableReadNs;
     NvU64 runtimeLoadNs;
