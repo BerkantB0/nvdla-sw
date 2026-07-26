@@ -39,6 +39,54 @@
 #include <string>
 #include <vector>
 
+struct PerformanceSample
+{
+    NvU32 index;
+    bool warmup;
+    NvU64 runtimeExecutionNs;
+    NvU64 outputExtractNs;
+};
+
+struct PerformanceProfile
+{
+    PerformanceProfile() :
+        clockResolutionNs(0),
+        runtimeCreateNs(0),
+        loadableReadNs(0),
+        runtimeLoadNs(0),
+        emuInitNs(0),
+        inputSetupNs(0),
+        outputSetupNs(0),
+        outputWriteNs(0),
+        bufferCleanupNs(0),
+        emuStopNs(0),
+        runtimeUnloadNs(0),
+        runtimeDestroyNs(0),
+        testTotalNs(0),
+        processTotalNs(0),
+        outputsConsistent(true),
+        status(NvDlaSuccess)
+    {}
+
+    NvU64 clockResolutionNs;
+    NvU64 runtimeCreateNs;
+    NvU64 loadableReadNs;
+    NvU64 runtimeLoadNs;
+    NvU64 emuInitNs;
+    NvU64 inputSetupNs;
+    NvU64 outputSetupNs;
+    NvU64 outputWriteNs;
+    NvU64 bufferCleanupNs;
+    NvU64 emuStopNs;
+    NvU64 runtimeUnloadNs;
+    NvU64 runtimeDestroyNs;
+    NvU64 testTotalNs;
+    NvU64 processTotalNs;
+    bool outputsConsistent;
+    NvDlaError status;
+    std::vector<PerformanceSample> samples;
+};
+
 struct TestAppArgs
 {
     std::string inputPath;
@@ -48,6 +96,9 @@ struct TestAppArgs
     NvU8 normalize_value;
     float mean[4];
     bool rawOutputDump;
+    std::string profilePath;
+    NvU32 warmupIterations;
+    NvU32 measuredIterations;
 
     TestAppArgs() :
         inputPath("./"),
@@ -56,7 +107,10 @@ struct TestAppArgs
         serverPort(6666),
         normalize_value(1),
         mean{0.0, 0.0, 0.0, 0.0},
-        rawOutputDump(false)
+        rawOutputDump(false),
+        profilePath(""),
+        warmupIterations(0),
+        measuredIterations(1)
     {}
 };
 
@@ -74,7 +128,8 @@ struct TestInfo
         numInputs(0),
         numOutputs(0),
         inputImage(NULL),
-        outputImage(NULL)
+        outputImage(NULL),
+        profile()
     {}
     // runtime
     nvdla::IRuntime* runtime;
@@ -89,6 +144,7 @@ struct TestInfo
     NvU32 numOutputs;
     NvDlaImage* inputImage;
     NvDlaImage* outputImage;
+    PerformanceProfile profile;
 };
 
 // Test

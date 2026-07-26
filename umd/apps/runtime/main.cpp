@@ -35,8 +35,26 @@
 #include <cstring>
 #include <iostream>
 #include <cstdlib> // system
+#include <cerrno>
+#include <climits>
 
 static TestAppArgs defaultTestAppArgs = TestAppArgs();
+
+static bool parseIterationCount(const char* value, bool allowZero,
+                                NvU32* result)
+{
+    char* end = NULL;
+    unsigned long parsed;
+
+    errno = 0;
+    parsed = std::strtoul(value, &end, 10);
+    if (errno || !end || *end || parsed > UINT_MAX ||
+        (!allowZero && parsed == 0))
+        return false;
+
+    *result = (NvU32)parsed;
+    return true;
+}
 
 static NvDlaError testSetup(const TestAppArgs* appArgs, TestInfo* i)
 {
@@ -193,6 +211,35 @@ int main(int argc, char* argv[])
         {
             testAppArgs.rawOutputDump = true;
         }
+        else if (std::strcmp(arg, "--profile-json") == 0)
+        {
+            if (ii+1 >= argc)
+            {
+                showHelp = true;
+                break;
+            }
+            testAppArgs.profilePath = std::string(argv[++ii]);
+        }
+        else if (std::strcmp(arg, "--warmup") == 0)
+        {
+            if (ii+1 >= argc ||
+                !parseIterationCount(argv[++ii], true,
+                                     &testAppArgs.warmupIterations))
+            {
+                showHelp = true;
+                break;
+            }
+        }
+        else if (std::strcmp(arg, "--iterations") == 0)
+        {
+            if (ii+1 >= argc ||
+                !parseIterationCount(argv[++ii], false,
+                                     &testAppArgs.measuredIterations))
+            {
+                showHelp = true;
+                break;
+            }
+        }
         else // unknown
         {
             // Unknown argument
@@ -220,6 +267,9 @@ int main(int argc, char* argv[])
         NvDlaDebugPrintf("    --normalize <value>   normalize value for input image\n");
         NvDlaDebugPrintf("    --mean <value>        comma separated mean value for input image\n");
         NvDlaDebugPrintf("    --rawdump             dump raw dimg data\n");
+        NvDlaDebugPrintf("    --profile-json <file> write structured performance data\n");
+        NvDlaDebugPrintf("    --warmup <count>      unreported warm-up submissions\n");
+        NvDlaDebugPrintf("    --iterations <count>  measured submissions (default: 1)\n");
 
         if (unknownArg || missingArg)
             return EXIT_FAILURE;
