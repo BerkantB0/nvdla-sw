@@ -61,6 +61,11 @@
 #include <nvdla_linux.h>
 #include <nvdla_ioctl.h>
 
+static bool firmware_log;
+module_param(firmware_log, bool, 0644);
+MODULE_PARM_DESC(firmware_log,
+		 "enable NVDLA firmware debug and progress messages");
+
 static struct nvdla_config nvdla_config_os_initial = {
 	.atom_size = 32,
 	.bdma_enable = true,
@@ -145,6 +150,10 @@ static int nvdla_enable_clocks(struct nvdla_device *nvdla_dev)
 void dla_debug(const char *str, ...)
 {
 	va_list args;
+
+	if (!READ_ONCE(firmware_log))
+		return;
+
 	va_start(args, str);
 	vprintk(pr_fmt(str), args);
 	va_end(args);
@@ -153,6 +162,10 @@ void dla_debug(const char *str, ...)
 void dla_info(const char *str, ...)
 {
 	va_list args;
+
+	if (!READ_ONCE(firmware_log))
+		return;
+
 	va_start(args, str);
 	vprintk(str, args);
 	va_end(args);
