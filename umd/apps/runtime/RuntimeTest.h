@@ -42,7 +42,9 @@
 struct PerformanceSample
 {
     NvU32 index;
+    NvU32 inputIndex;
     bool warmup;
+    NvU64 inputUpdateNs;
     NvU64 runtimeExecutionNs;
     NvU64 outputExtractNs;
 };
@@ -93,6 +95,7 @@ struct TestAppArgs
 {
     std::string inputPath;
     std::string inputName;
+    std::vector<std::string> inputNames;
     std::string loadableName;
     NvS32 serverPort;
     NvU8 normalize_value;
@@ -105,6 +108,7 @@ struct TestAppArgs
     TestAppArgs() :
         inputPath("./"),
         inputName(""),
+        inputNames(),
         loadableName(""),
         serverPort(6666),
         normalize_value(1),
@@ -146,6 +150,7 @@ struct TestInfo
     NvU32 numOutputs;
     NvDlaImage* inputImage;
     NvDlaImage* outputImage;
+    std::vector<std::vector<NvU8> > preparedInputs;
     PerformanceProfile profile;
 };
 

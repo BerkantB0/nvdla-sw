@@ -64,16 +64,21 @@ static NvDlaError testSetup(const TestAppArgs* appArgs, TestInfo* i)
     NvDlaStatType stat;
 
     // Do input paths exist?
-    if (std::strcmp(appArgs->inputName.c_str(), "") != 0)
+    if (!appArgs->inputNames.empty())
     {
         e = NvDlaStat(appArgs->inputPath.c_str(), &stat);
         if (e != NvDlaSuccess)
             ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "Input path does not exist: \"%s\"", appArgs->inputPath.c_str());
 
-        imagePath = /* appArgs->inputPath + "/images/" + */appArgs->inputName;
-        e = NvDlaStat(imagePath.c_str(), &stat);
-        if (e != NvDlaSuccess)
-            ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "Image path does not exist: \"%s/%s\"", imagePath.c_str());
+        for (size_t index = 0; index < appArgs->inputNames.size(); ++index)
+        {
+            imagePath = appArgs->inputNames[index];
+            e = NvDlaStat(imagePath.c_str(), &stat);
+            if (e != NvDlaSuccess)
+                ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter,
+                                     "Image path does not exist: \"%s\"",
+                                     imagePath.c_str());
+        }
     }
 
     return NvDlaSuccess;
@@ -161,7 +166,7 @@ int main(int argc, char* argv[])
                 break;
             }
 
-            testAppArgs.inputName = std::string(argv[++ii]);
+            testAppArgs.inputNames.push_back(std::string(argv[++ii]));
         }
         else if (std::strcmp(arg, "--loadable") == 0)
         {
@@ -256,6 +261,11 @@ int main(int argc, char* argv[])
         showHelp = true;
         missingArg = true;
     }
+    if (testAppArgs.inputNames.empty() && !serverMode)
+    {
+        showHelp = true;
+        missingArg = true;
+    }
 
     if (showHelp)
     {
@@ -263,7 +273,7 @@ int main(int argc, char* argv[])
         NvDlaDebugPrintf("where options include:\n");
         NvDlaDebugPrintf("    -h                    print this help message\n");
         NvDlaDebugPrintf("    -s                    launch test in server mode\n");
-        NvDlaDebugPrintf("    --image <file>        input jpg/pgm file\n");
+        NvDlaDebugPrintf("    --image <file>        input jpg/pgm file (repeatable)\n");
         NvDlaDebugPrintf("    --normalize <value>   normalize value for input image\n");
         NvDlaDebugPrintf("    --mean <value>        comma separated mean value for input image\n");
         NvDlaDebugPrintf("    --rawdump             dump raw dimg data\n");
